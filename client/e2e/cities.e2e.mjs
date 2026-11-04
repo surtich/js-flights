@@ -1,23 +1,39 @@
 import { expect, test } from "@playwright/test";
 
-test("loads cities and updates the selected city status", async ({ page }) => {
+test("loads cities once into both selectors and updates their status", async ({ page }) => {
+  let citiesRequests = 0;
+  page.on("request", (request) => {
+    if (request.url() === "http://localhost:3000/cities") citiesRequests += 1;
+  });
+
   await page.goto("/");
 
-  const citySelect = page.locator("#city-select");
+  const originCitySelect = page.locator("#origin-city-select");
+  const destinationCitySelect = page.locator("#destination-city-select");
   const status = page.locator("#status");
 
-  await expect(citySelect).toBeEnabled();
-  await expect(citySelect.locator('option[value="Anchor Point"]')).toHaveCount(
-    1,
-  );
+  await expect(originCitySelect).toBeEnabled();
+  await expect(destinationCitySelect).toBeEnabled();
+  await expect(
+    originCitySelect.locator('option[value="Anchor Point"]'),
+  ).toHaveCount(1);
+  await expect(
+    destinationCitySelect.locator('option[value="Anchor Point"]'),
+  ).toHaveCount(1);
 
   const initialStatus = await status.textContent();
   expect(initialStatus).toMatch(/^\d[\d.,\s]* ciudades disponibles$/);
+  expect(citiesRequests).toBe(1);
 
-  await citySelect.selectOption({ label: "Anchor Point" });
-  await expect(status).toHaveText("Ciudad seleccionada: Anchor Point");
+  await originCitySelect.selectOption({ label: "Anchor Point" });
+  await expect(status).toHaveText("Origen: Anchor Point");
 
-  await citySelect.selectOption("");
+  await destinationCitySelect.selectOption({ label: "Harvest" });
+  await expect(status).toHaveText("Origen: Anchor Point · Destino: Harvest");
+
+  await originCitySelect.selectOption("");
+  await expect(status).toHaveText("Destino: Harvest");
+  await destinationCitySelect.selectOption("");
   await expect(status).toHaveText(initialStatus);
 });
 
@@ -29,8 +45,12 @@ test("shows an error when the cities request fails", async ({ page }) => {
   await expect(page.locator("#status")).toHaveText(
     "Comprueba que el servidor esté activo.",
   );
-  await expect(page.locator("#city-select")).toBeDisabled();
-  await expect(page.locator("#city-select option")).toHaveText(
+  await expect(page.locator("#origin-city-select")).toBeDisabled();
+  await expect(page.locator("#destination-city-select")).toBeDisabled();
+  await expect(page.locator("#origin-city-select option")).toHaveText(
+    "No se pudieron cargar las ciudades",
+  );
+  await expect(page.locator("#destination-city-select option")).toHaveText(
     "No se pudieron cargar las ciudades",
   );
 });

@@ -26,6 +26,10 @@ h1 {
   font-weight: 400;
 }
 
+.city-field {
+  margin-bottom: 20px;
+}
+
 label {
   display: block;
   margin-bottom: 10px;
@@ -54,7 +58,7 @@ select:focus-visible {
 
 #status {
   min-height: 24px;
-  margin: 12px 0 0;
+  margin: 24px 0 0;
   color: #53665e;
   font:
     14px Arial,
