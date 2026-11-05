@@ -9,18 +9,8 @@
   <body>
     <main>
       <h1>Vuelo</h1>
-      <div class="city-field">
-        <label for="origin-city-select">Ciudad de origen</label>
-        <select id="origin-city-select" name="origin" disabled>
-          <option value="">Cargando ciudades...</option>
-        </select>
-      </div>
-      <div class="city-field">
-        <label for="destination-city-select">Ciudad de destino</label>
-        <select id="destination-city-select" name="destination" disabled>
-          <option value="">Cargando ciudades...</option>
-        </select>
-      </div>
+      <div id="origin-city-field"></div>
+      <div id="destination-city-field"></div>
       <p id="status" role="status" aria-live="polite"></p>
     </main>
     <script type="module" src="./dist/index.js"></script>

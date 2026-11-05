@@ -38,7 +38,7 @@ label {
   font-weight: 700;
 }
 
-select {
+input[type="search"] {
   width: 100%;
   min-height: 54px;
   padding: 0 14px;
@@ -51,9 +51,45 @@ select {
     sans-serif;
 }
 
-select:focus-visible {
+input[type="search"]:focus-visible {
   outline: 3px solid #8cc9ad;
   outline-offset: 2px;
+}
+
+.suggestion-summary {
+  margin: 8px 0 0;
+  color: #53665e;
+  font:
+    13px Arial,
+    sans-serif;
+}
+
+.suggestions {
+  max-height: 240px;
+  margin: 8px 0 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  border: 1px solid #aebdb6;
+  border-radius: 4px;
+  background: #fff;
+  list-style: none;
+}
+
+.suggestions[hidden] {
+  display: none;
+}
+
+.suggestions li {
+  padding: 10px 14px;
+  font:
+    15px Arial,
+    sans-serif;
+  cursor: pointer;
+}
+
+.suggestions li[aria-selected="true"],
+.suggestions li:hover {
+  background: #e4f1e9;
 }
 
 #status {

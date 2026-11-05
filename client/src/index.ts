@@ -1,54 +1,65 @@
 import { getCities } from "./services.js";
+import { createCitySearch } from "./components/city-search.js";
 
-const originCitySelect = document.querySelector<HTMLSelectElement>(
-  "#origin-city-select",
+const originCityContainer = document.querySelector<HTMLDivElement>(
+  "#origin-city-field",
 );
-const destinationCitySelect = document.querySelector<HTMLSelectElement>(
-  "#destination-city-select",
+const destinationCityContainer = document.querySelector<HTMLDivElement>(
+  "#destination-city-field",
 );
 const status = document.querySelector<HTMLParagraphElement>("#status");
 
-if (!originCitySelect || !destinationCitySelect || !status) {
-  throw new Error("No se encontraron los elementos de la lista de ciudades.");
+if (!originCityContainer || !destinationCityContainer || !status) {
+  throw new Error("No se encontraron los elementos de búsqueda de ciudades.");
 }
+
+let selectedOrigin: string | null = null;
+let selectedDestination: string | null = null;
+let cityCount = 0;
+
+const updateStatus = (): void => {
+  const selections = [
+    selectedOrigin && `Origen: ${selectedOrigin}`,
+    selectedDestination && `Destino: ${selectedDestination}`,
+  ].filter((selection): selection is string => Boolean(selection));
+
+  status.textContent = selections.length
+    ? selections.join(" · ")
+    : `${cityCount.toLocaleString("es")} ciudades disponibles`;
+};
+
+const originCitySearch = createCitySearch({
+  idPrefix: "origin-city",
+  name: "origin",
+  label: "Ciudad de origen",
+  placeholder: "Busca una ciudad de origen",
+  onSelect: (city) => {
+    selectedOrigin = city;
+    updateStatus();
+  },
+});
+const destinationCitySearch = createCitySearch({
+  idPrefix: "destination-city",
+  name: "destination",
+  label: "Ciudad de destino",
+  placeholder: "Busca una ciudad de destino",
+  onSelect: (city) => {
+    selectedDestination = city;
+    updateStatus();
+  },
+});
+
+originCityContainer.append(originCitySearch.element);
+destinationCityContainer.append(destinationCitySearch.element);
 
 try {
   const cities = await getCities();
-
-  const populateSelect = (
-    select: HTMLSelectElement,
-    placeholder: string,
-  ): void => {
-    select.replaceChildren(new Option(placeholder, ""));
-    for (const city of cities) {
-      select.add(new Option(city, city));
-    }
-    select.disabled = false;
-  };
-
-  populateSelect(originCitySelect, "Selecciona una ciudad de origen");
-  populateSelect(destinationCitySelect, "Selecciona una ciudad de destino");
-
-  const updateStatus = (): void => {
-    const selections = [
-      originCitySelect.value && `Origen: ${originCitySelect.value}`,
-      destinationCitySelect.value && `Destino: ${destinationCitySelect.value}`,
-    ].filter((selection): selection is string => Boolean(selection));
-
-    status.textContent = selections.length
-      ? selections.join(" · ")
-      : `${cities.length.toLocaleString("es")} ciudades disponibles`;
-  };
-
-  originCitySelect.addEventListener("change", updateStatus);
-  destinationCitySelect.addEventListener("change", updateStatus);
+  cityCount = cities.length;
+  originCitySearch.setCities(cities);
+  destinationCitySearch.setCities(cities);
   updateStatus();
 } catch {
-  const errorOption = new Option(
-    "No se pudieron cargar las ciudades",
-    "",
-  );
-  originCitySelect.replaceChildren(errorOption.cloneNode(true));
-  destinationCitySelect.replaceChildren(errorOption);
+  originCitySearch.setError();
+  destinationCitySearch.setError();
   status.textContent = "Comprueba que el servidor esté activo.";
 }
