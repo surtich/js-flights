@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 test("suggests cities containing the query and updates their status", async ({ page }) => {
-  let citiesRequests = 0;
+  const citiesRequests = [];
   page.on("request", (request) => {
-    if (request.url() === "http://localhost:3000/cities") citiesRequests += 1;
+    if (request.url().startsWith("http://localhost:3000/cities?")) {
+      citiesRequests.push(request.url());
+    }
   });
 
   await page.goto("/");
@@ -14,9 +16,8 @@ test("suggests cities containing the query and updates their status", async ({ p
 
   await expect(originCitySearch).toBeEnabled();
   await expect(destinationCitySearch).toBeEnabled();
-  const initialStatus = await status.textContent();
-  expect(initialStatus).toMatch(/^\d[\d.,\s]* ciudades disponibles$/);
-  expect(citiesRequests).toBe(1);
+  await expect(status).toHaveText("Busca una ciudad de origen y destino.");
+  expect(citiesRequests).toHaveLength(0);
 
   await originCitySearch.fill("point");
   await expect(
@@ -24,6 +25,8 @@ test("suggests cities containing the query and updates their status", async ({ p
       hasText: "Anchor Point",
     }),
   ).toHaveCount(1);
+  await expect.poll(() => citiesRequests.length).toBe(1);
+  expect(new URL(citiesRequests[0]).searchParams.get("search")).toBe("point");
 
   await originCitySearch.fill("nch");
   await expect(
@@ -31,6 +34,8 @@ test("suggests cities containing the query and updates their status", async ({ p
       hasText: "Anchor Point",
     }),
   ).toHaveCount(1);
+  await expect.poll(() => citiesRequests.length).toBe(2);
+  expect(new URL(citiesRequests[1]).searchParams.get("search")).toBe("nch");
   await page.getByRole("option", { name: "Anchor Point" }).click();
 
   await destinationCitySearch.fill("vest");
@@ -48,27 +53,20 @@ test("suggests cities containing the query and updates their status", async ({ p
   await originCitySearch.fill("no-city-matches-this");
   await expect(status).toHaveText("Destino: Harvest");
   await destinationCitySearch.fill("");
-  await expect(status).toHaveText(initialStatus);
+  await expect(status).toHaveText("Busca una ciudad de origen y destino.");
 });
 
 test("shows an error when the cities request fails", async ({ page }) => {
-  await page.route("http://localhost:3000/cities", (route) => route.abort());
+  await page.route(/\/cities(?:\?.*)?$/, (route) => route.abort());
 
   await page.goto("/");
 
-  await expect(page.locator("#status")).toHaveText(
-    "Comprueba que el servidor esté activo.",
+  const search = page.locator("#origin-city-search");
+  await search.fill("madrid");
+  await expect(page.locator("#origin-city-summary")).toHaveText(
+    "No se pudieron cargar las sugerencias. Inténtalo de nuevo.",
   );
-  await expect(page.locator("#origin-city-search")).toBeDisabled();
-  await expect(page.locator("#destination-city-search")).toBeDisabled();
-  await expect(page.locator("#origin-city-search")).toHaveAttribute(
-    "placeholder",
-    "No se pudieron cargar las ciudades",
-  );
-  await expect(page.locator("#destination-city-search")).toHaveAttribute(
-    "placeholder",
-    "No se pudieron cargar las ciudades",
-  );
+  await expect(search).toBeEnabled();
 });
 
 test("keeps keyboard navigation moving through the scrollable suggestions", async ({ page }) => {

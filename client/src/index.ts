@@ -15,7 +15,6 @@ if (!originCityContainer || !destinationCityContainer || !status) {
 
 let selectedOrigin: string | null = null;
 let selectedDestination: string | null = null;
-let cityCount = 0;
 
 const updateStatus = (): void => {
   const selections = [
@@ -25,7 +24,7 @@ const updateStatus = (): void => {
 
   status.textContent = selections.length
     ? selections.join(" · ")
-    : `${cityCount.toLocaleString("es")} ciudades disponibles`;
+    : "Busca una ciudad de origen y destino.";
 };
 
 const originCitySearch = createCitySearch({
@@ -33,6 +32,7 @@ const originCitySearch = createCitySearch({
   name: "origin",
   label: "Ciudad de origen",
   placeholder: "Busca una ciudad de origen",
+  searchCities: getCities,
   onSelect: (city) => {
     selectedOrigin = city;
     updateStatus();
@@ -43,6 +43,7 @@ const destinationCitySearch = createCitySearch({
   name: "destination",
   label: "Ciudad de destino",
   placeholder: "Busca una ciudad de destino",
+  searchCities: getCities,
   onSelect: (city) => {
     selectedDestination = city;
     updateStatus();
@@ -51,15 +52,4 @@ const destinationCitySearch = createCitySearch({
 
 originCityContainer.append(originCitySearch.element);
 destinationCityContainer.append(destinationCitySearch.element);
-
-try {
-  const cities = await getCities();
-  cityCount = cities.length;
-  originCitySearch.setCities(cities);
-  destinationCitySearch.setCities(cities);
-  updateStatus();
-} catch {
-  originCitySearch.setError();
-  destinationCitySearch.setError();
-  status.textContent = "Comprueba que el servidor esté activo.";
-}
+updateStatus();

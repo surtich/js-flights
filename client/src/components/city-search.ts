@@ -4,13 +4,12 @@ export interface CitySearchOptions {
   label: string;
   placeholder: string;
   onSelect: (city: string | null) => void;
+  searchCities: (query: string, signal: AbortSignal) => Promise<string[]>;
 }
 
 export interface CitySearchComponent {
   element: HTMLDivElement;
   input: HTMLInputElement;
-  setCities: (cities: string[]) => void;
-  setError: () => void;
 }
 
 export function createCitySearch({
@@ -19,12 +18,14 @@ export function createCitySearch({
   label: labelText,
   placeholder,
   onSelect,
+  searchCities,
 }: CitySearchOptions): CitySearchComponent {
   const searchId = `${idPrefix}-search`;
   const suggestionsId = `${idPrefix}-suggestions`;
   const maxSuggestions = 20;
-  let cities: Array<{ city: string; normalized: string }> = [];
   let activeIndex = -1;
+  let latestSearch = 0;
+  let activeRequest: AbortController | null = null;
 
   const element = document.createElement("div");
   element.className = "city-field";
@@ -41,9 +42,8 @@ export function createCitySearch({
   input.setAttribute("aria-autocomplete", "list");
   input.setAttribute("aria-controls", suggestionsId);
   input.setAttribute("aria-expanded", "false");
-  input.placeholder = "Cargando ciudades...";
+  input.placeholder = placeholder;
   input.autocomplete = "off";
-  input.disabled = true;
 
   const summary = document.createElement("p");
   summary.id = `${idPrefix}-summary`;
@@ -65,6 +65,9 @@ export function createCitySearch({
   };
 
   const selectCity = (city: string): void => {
+    latestSearch += 1;
+    activeRequest?.abort();
+    activeRequest = null;
     input.value = city;
     onSelect(city);
     summary.textContent = "";
@@ -97,22 +100,17 @@ export function createCitySearch({
     }
   };
 
-  input.addEventListener("input", () => {
-    onSelect(null);
-    const query = input.value.trim().toLocaleLowerCase();
+  const renderSuggestions = (matches: string[]): void => {
     suggestions.replaceChildren();
     summary.textContent = "";
     hideSuggestions();
 
-    if (!query) return;
-
-    const matches = cities.filter(({ normalized }) => normalized.includes(query));
     if (matches.length === 0) {
       summary.textContent = "No se encontraron ciudades.";
       return;
     }
 
-    for (const { city } of matches.slice(0, maxSuggestions)) {
+    for (const city of matches.slice(0, maxSuggestions)) {
       const option = document.createElement("li");
       option.id = `${suggestionsId}-option-${suggestions.childElementCount}`;
       option.dataset.city = city;
@@ -127,6 +125,41 @@ export function createCitySearch({
     }
     suggestions.hidden = false;
     input.setAttribute("aria-expanded", "true");
+  };
+
+  input.addEventListener("input", () => {
+    onSelect(null);
+    const query = input.value.trim();
+    latestSearch += 1;
+    const searchId = latestSearch;
+    activeRequest?.abort();
+    activeRequest = null;
+    suggestions.replaceChildren();
+    summary.textContent = "";
+    hideSuggestions();
+
+    if (!query) return;
+
+    const controller = new AbortController();
+    activeRequest = controller;
+    summary.textContent = "Buscando ciudades...";
+
+    void searchCities(query, controller.signal).then(
+      (matches) => {
+        if (searchId !== latestSearch) return;
+        activeRequest = null;
+        renderSuggestions(matches);
+      },
+      (error: unknown) => {
+        if (searchId !== latestSearch) return;
+        activeRequest = null;
+        summary.textContent =
+          "No se pudieron cargar las sugerencias. Inténtalo de nuevo.";
+        suggestions.replaceChildren();
+        hideSuggestions();
+        console.error("Error al buscar ciudades:", error);
+      },
+    );
   });
 
   input.addEventListener("keydown", (event) => {
@@ -160,20 +193,5 @@ export function createCitySearch({
     if (city) selectCity(city);
   });
 
-  return {
-    element,
-    input,
-    setCities: (availableCities) => {
-      cities = availableCities.map((city) => ({
-        city,
-        normalized: city.toLocaleLowerCase(),
-      }));
-      input.placeholder = placeholder;
-      input.disabled = false;
-    },
-    setError: () => {
-      input.disabled = true;
-      input.placeholder = "No se pudieron cargar las ciudades";
-    },
-  };
+  return { element, input };
 }

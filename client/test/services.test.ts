@@ -13,7 +13,7 @@ describe("getCities", () => {
     vi.clearAllMocks();
   });
 
-  it("requests and returns the list of cities", async () => {
+  it("requests and returns cities matching the encoded query", async () => {
     const cities = ["Madrid", "Barcelona"];
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify(cities), {
@@ -22,8 +22,24 @@ describe("getCities", () => {
       }),
     );
 
-    await expect(getCities()).resolves.toEqual(cities);
-    expect(fetchMock).toHaveBeenCalledWith("http://localhost:3000/cities");
+    await expect(getCities("New York")).resolves.toEqual(cities);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/cities?search=New+York",
+      { signal: undefined },
+    );
+  });
+
+  it("passes the abort signal to the request", async () => {
+    const signal = new AbortController().signal;
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify(["Madrid"]), { status: 200 }),
+    );
+
+    await expect(getCities("mad", signal)).resolves.toEqual(["Madrid"]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/cities?search=mad",
+      { signal },
+    );
   });
 
   it("throws when the server responds with an error", async () => {

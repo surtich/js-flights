@@ -16,3 +16,17 @@ export const cities: string[] = Array.from(
       ),
   ),
 ).sort((left, right) => left.localeCompare(right, "es"));
+
+const normalizedCities = cities.map((city) => ({
+  city,
+  normalized: city.toLocaleLowerCase(),
+}));
+
+export function searchCities(query: string): string[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return [];
+
+  return normalizedCities
+    .filter(({ normalized }) => normalized.includes(normalizedQuery))
+    .map(({ city }) => city);
+}
