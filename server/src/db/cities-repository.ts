@@ -5,8 +5,17 @@ export interface CitySearchResults {
   total: number;
 }
 
+export interface CityListResults extends CitySearchResults {
+  page: number;
+  pageSize: number;
+}
+
 interface CitySearchRow {
   name: string;
+  total: string;
+}
+
+interface CityCountRow {
   total: string;
 }
 
@@ -29,6 +38,27 @@ export async function searchCities(query: string): Promise<CitySearchResults> {
   return {
     cities: result.rows.map(({ name }) => name),
     total: Number(result.rows[0]?.total ?? 0),
+  };
+}
+
+export async function listCities(page: number): Promise<CityListResults> {
+  const countResult = await pool.query<CityCountRow>(
+    "SELECT COUNT(*) AS total FROM cities",
+  );
+  const total = Number(countResult.rows[0]?.total ?? 0);
+  const result = await pool.query<CityRow>(
+    `SELECT name
+     FROM cities
+     ORDER BY name
+     LIMIT $1 OFFSET $2`,
+    [maxResults, (page - 1) * maxResults],
+  );
+
+  return {
+    cities: result.rows.map(({ name }) => name),
+    total,
+    page,
+    pageSize: maxResults,
   };
 }
 

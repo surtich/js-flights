@@ -8,28 +8,94 @@ import {
   vi,
 } from "vitest";
 
-const { searchCitiesMock } = vi.hoisted(() => ({
+const {
+  searchCitiesMock,
+  listCitiesMock,
+  createCityMock,
+  updateCityMock,
+  deleteCityMock,
+} = vi.hoisted(() => ({
   searchCitiesMock: vi.fn(),
+  listCitiesMock: vi.fn(),
+  createCityMock: vi.fn(),
+  updateCityMock: vi.fn(),
+  deleteCityMock: vi.fn(),
 }));
 
 vi.mock("../src/services.js", () => ({
   searchCities: searchCitiesMock,
+  listCities: listCitiesMock,
+  createCity: createCityMock,
+  updateCity: updateCityMock,
+  deleteCity: deleteCityMock,
 }));
 
 describe("index UI", () => {
   beforeEach(() => {
     vi.resetModules();
-    document.body.innerHTML = `
-      <div id="origin-city-field"></div>
-      <div id="destination-city-field"></div>
-      <p id="status"></p>
-    `;
+    const header = document.createElement("header");
+    header.className = "site-header";
+    const navigation = document.createElement("nav");
+    for (const [label, href] of [
+      ["Inicio", "#/"],
+      ["Ciudades", "#/cities"],
+      ["Buscar vuelos", "#/flights"],
+    ]) {
+      const link = document.createElement("a");
+      link.textContent = label;
+      link.href = href;
+      link.dataset.route = "";
+      navigation.append(link);
+    }
+    header.append(navigation);
+    const page = document.createElement("main");
+    page.id = "page-content";
+    document.body.replaceChildren(header, page);
     searchCitiesMock.mockReset();
+    listCitiesMock.mockReset();
+    listCitiesMock.mockResolvedValue({
+      cities: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    });
+    createCityMock.mockReset();
+    updateCityMock.mockReset();
+    deleteCityMock.mockReset();
+    window.history.replaceState(null, "", "/");
   });
 
   afterEach(() => {
     document.body.replaceChildren();
     vi.restoreAllMocks();
+  });
+
+  async function openFlightsSearch(): Promise<void> {
+    window.history.replaceState(null, "", "/#/flights");
+    await import("../src/index.ts");
+    await vi.waitFor(() =>
+      expect(document.querySelector("#status")).not.toBeNull(),
+    );
+  }
+
+  async function openCityAdmin(): Promise<void> {
+    window.history.replaceState(null, "", "/#/cities");
+    await import("../src/index.ts");
+    await vi.waitFor(() =>
+      expect(document.querySelector("#create-city-form")).not.toBeNull(),
+    );
+  }
+
+  it("shows a home menu that links to cities and flight search", async () => {
+    await import("../src/index.ts");
+
+    expect(document.querySelector("h1")?.textContent).toBe("¿A dónde quieres volar?");
+    expect(document.querySelector('a[href="#/cities"]')?.textContent).toContain(
+      "Ciudades",
+    );
+    expect(document.querySelector('a[href="#/flights"]')?.textContent).toContain(
+      "Buscar vuelos",
+    );
   });
 
   it("requests matching cities and updates selection status", async () => {
@@ -41,7 +107,7 @@ describe("index UI", () => {
       return { cities: matches, total: matches.length };
     });
 
-    await import("../src/index.ts");
+    await openFlightsSearch();
 
     const originCitySearch = document.querySelector<HTMLInputElement>(
       "#origin-city-search",
@@ -111,7 +177,7 @@ describe("index UI", () => {
       total: 25,
     });
 
-    await import("../src/index.ts");
+    await openFlightsSearch();
 
     const search = document.querySelector<HTMLInputElement>(
       "#origin-city-search",
@@ -135,7 +201,7 @@ describe("index UI", () => {
       total: 2,
     });
 
-    await import("../src/index.ts");
+    await openFlightsSearch();
 
     const search = document.querySelector<HTMLInputElement>(
       "#origin-city-search",
@@ -167,7 +233,7 @@ describe("index UI", () => {
     searchCitiesMock.mockRejectedValue(new Error("network error"));
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await import("../src/index.ts");
+    await openFlightsSearch();
 
     const search = document.querySelector<HTMLInputElement>(
       "#origin-city-search",
@@ -195,7 +261,7 @@ describe("index UI", () => {
       )
       .mockResolvedValueOnce({ cities: ["Madrid"], total: 1 });
 
-    await import("../src/index.ts");
+    await openFlightsSearch();
 
     const search = document.querySelector<HTMLInputElement>(
       "#origin-city-search",
@@ -215,5 +281,92 @@ describe("index UI", () => {
 
     expect(Array.from(suggestions.children).map((option) => option.textContent))
       .toEqual(["Madrid"]);
+  });
+
+  it("creates, searches, renames, and deletes cities from the admin page", async () => {
+    createCityMock.mockResolvedValue({ name: "Madrid" });
+    updateCityMock.mockResolvedValue({ name: "Barcelona" });
+    deleteCityMock.mockResolvedValue(undefined);
+    listCitiesMock
+      .mockResolvedValueOnce({ cities: [], total: 0, page: 1, pageSize: 20 })
+      .mockResolvedValueOnce({
+        cities: ["Madrid"],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      })
+      .mockResolvedValueOnce({
+        cities: ["Barcelona"],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      })
+      .mockResolvedValueOnce({ cities: [], total: 0, page: 1, pageSize: 20 });
+    await openCityAdmin();
+
+    const newCityName = document.querySelector<HTMLInputElement>("#new-city-name")!;
+    newCityName.value = " Madrid ";
+    document.querySelector<HTMLFormElement>("#create-city-form")!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await vi.waitFor(() =>
+      expect(document.querySelector(".city-result")?.textContent).toContain(
+        "Madrid",
+      ),
+    );
+    expect(createCityMock).toHaveBeenCalledWith("Madrid");
+
+    document.querySelector<HTMLButtonElement>(".city-result button")!.click();
+    const editInput = document.querySelector<HTMLInputElement>(
+      ".edit-city-form input",
+    )!;
+    editInput.value = " Barcelona ";
+    document.querySelector<HTMLFormElement>(".edit-city-form")!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await vi.waitFor(() =>
+      expect(document.querySelector(".city-result")?.textContent).toContain(
+        "Barcelona",
+      ),
+    );
+    expect(updateCityMock).toHaveBeenCalledWith("Madrid", "Barcelona");
+
+    document.querySelector<HTMLButtonElement>(".city-result .danger")!.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector(".city-result")).toBeNull(),
+    );
+    expect(deleteCityMock).toHaveBeenCalledWith("Barcelona");
+  });
+
+  it("paginates through the full city list", async () => {
+    listCitiesMock
+      .mockResolvedValueOnce({
+        cities: Array.from({ length: 20 }, (_, index) => `City ${index}`),
+        total: 21,
+        page: 1,
+        pageSize: 20,
+      })
+      .mockResolvedValueOnce({
+        cities: ["Last City"],
+        total: 21,
+        page: 2,
+        pageSize: 20,
+      });
+
+    await openCityAdmin();
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll(".city-result")).toHaveLength(20),
+    );
+    expect(document.querySelector(".page-indicator")?.textContent).toBe(
+      "Página 1 de 2",
+    );
+
+    document.querySelector<HTMLButtonElement>(".city-pagination button:last-child")!.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector(".city-result")?.textContent).toContain(
+        "Last City",
+      ),
+    );
+    expect(listCitiesMock).toHaveBeenLastCalledWith(2);
   });
 });

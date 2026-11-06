@@ -1,4 +1,5 @@
 import type { CitySearchResults } from "../services.js";
+import { searchCities } from "../services.js";
 
 export interface CitySearchOptions {
   idPrefix: string;
@@ -15,6 +16,72 @@ export interface CitySearchOptions {
 export interface CitySearchComponent {
   element: HTMLDivElement;
   input: HTMLInputElement;
+}
+
+export function createFlightSearchView(): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "page-section";
+  section.append(
+    createTextElement("p", "eyebrow", "Vuelos"),
+    createTextElement("h1", "", "Busca tu próximo vuelo"),
+    createTextElement(
+      "p",
+      "intro",
+      "Selecciona una ciudad de origen y otra de destino.",
+    ),
+  );
+
+  const originCityContainer = document.createElement("div");
+  originCityContainer.id = "origin-city-field";
+  const destinationCityContainer = document.createElement("div");
+  destinationCityContainer.id = "destination-city-field";
+  const status = document.createElement("p");
+  status.id = "status";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  section.append(originCityContainer, destinationCityContainer, status);
+
+  let selectedOrigin: string | null = null;
+  let selectedDestination: string | null = null;
+
+  const updateStatus = (): void => {
+    const selections = [
+      selectedOrigin && `Origen: ${selectedOrigin}`,
+      selectedDestination && `Destino: ${selectedDestination}`,
+    ].filter((selection): selection is string => Boolean(selection));
+
+    status.textContent = selections.length
+      ? selections.join(" · ")
+      : "Busca una ciudad de origen y destino.";
+  };
+
+  const originCitySearch = createCitySearch({
+    idPrefix: "origin-city",
+    name: "origin",
+    label: "Ciudad de origen",
+    placeholder: "Busca una ciudad de origen",
+    searchCities,
+    onSelect: (city) => {
+      selectedOrigin = city;
+      updateStatus();
+    },
+  });
+  const destinationCitySearch = createCitySearch({
+    idPrefix: "destination-city",
+    name: "destination",
+    label: "Ciudad de destino",
+    placeholder: "Busca una ciudad de destino",
+    searchCities,
+    onSelect: (city) => {
+      selectedDestination = city;
+      updateStatus();
+    },
+  });
+
+  originCityContainer.append(originCitySearch.element);
+  destinationCityContainer.append(destinationCitySearch.element);
+  updateStatus();
+  return section;
 }
 
 export function createCitySearch({
@@ -199,4 +266,15 @@ export function createCitySearch({
   });
 
   return { element, input };
+}
+
+function createTextElement<K extends keyof HTMLElementTagNameMap>(
+  tagName: K,
+  className: string,
+  text: string,
+): HTMLElementTagNameMap[K] {
+  const element = document.createElement(tagName);
+  element.className = className;
+  element.textContent = text;
+  return element;
 }

@@ -3,6 +3,7 @@ import {
   createCity,
   deleteCity,
   findCity,
+  listCities,
   renameCity,
   searchCities,
 } from "../db/cities-repository.ts";
@@ -13,6 +14,27 @@ const router = Router();
 
 router.get("/", async (request: Request, response: Response): Promise<void> => {
   const search = request.query.search;
+  if (search === undefined) {
+    const pageValue = request.query.page ?? "1";
+    const page = typeof pageValue === "string" ? Number(pageValue) : NaN;
+    if (!Number.isSafeInteger(page) || page < 1) {
+      response.status(400).json({
+        error: "El parámetro 'page' debe ser un entero positivo.",
+      });
+      return;
+    }
+
+    try {
+      response.json(await listCities(page));
+    } catch (error) {
+      console.error("Error al listar ciudades en PostgreSQL:", error);
+      response.status(500).json({
+        error: "No se pudieron cargar las ciudades.",
+      });
+    }
+    return;
+  }
+
   if (typeof search !== "string" || !search.trim()) {
     response.status(400).json({
       error: "El parámetro 'search' es obligatorio y no puede estar vacío.",

@@ -10,6 +10,7 @@ vi.mock("../src/db/database.ts", () => ({
 
 const {
   searchCities,
+  listCities,
   createCity,
   findCity,
   renameCity,
@@ -50,6 +51,22 @@ describe("searchCities repository", () => {
     queryMock.mockRejectedValue(new Error("database unavailable"));
 
     await expect(searchCities("mad")).rejects.toThrow("database unavailable");
+  });
+
+  it("lists cities in pages and returns the total count", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ total: "25" }] })
+      .mockResolvedValueOnce({ rows: [{ name: "Madrid" }] });
+
+    await expect(listCities(2)).resolves.toEqual({
+      cities: ["Madrid"],
+      total: 25,
+      page: 2,
+      pageSize: 20,
+    });
+    expect(queryMock.mock.calls[0]![0]).toContain("COUNT(*)");
+    expect(queryMock.mock.calls[1]![0]).toContain("ORDER BY name");
+    expect(queryMock.mock.calls[1]![1]).toEqual([20, 20]);
   });
 
   it("inserts a city and returns its name", async () => {

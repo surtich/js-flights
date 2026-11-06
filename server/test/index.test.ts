@@ -12,12 +12,14 @@ import type { Server } from "node:http";
 
 const {
   searchCitiesMock,
+  listCitiesMock,
   createCityMock,
   findCityMock,
   renameCityMock,
   deleteCityMock,
 } = vi.hoisted(() => ({
   searchCitiesMock: vi.fn(),
+  listCitiesMock: vi.fn(),
   createCityMock: vi.fn(),
   findCityMock: vi.fn(),
   renameCityMock: vi.fn(),
@@ -26,6 +28,7 @@ const {
 
 vi.mock("../src/db/cities-repository.ts", () => ({
   searchCities: searchCitiesMock,
+  listCities: listCitiesMock,
   createCity: createCityMock,
   findCity: findCityMock,
   renameCity: renameCityMock,
@@ -40,6 +43,7 @@ describe("GET /cities", () => {
 
   beforeEach(() => {
     searchCitiesMock.mockReset();
+    listCitiesMock.mockReset();
     createCityMock.mockReset();
     findCityMock.mockReset();
     renameCityMock.mockReset();
@@ -80,13 +84,53 @@ describe("GET /cities", () => {
     expect(searchCitiesMock).toHaveBeenCalledWith("mock");
   });
 
+  it("lists a page of cities when search is not requested", async () => {
+    listCitiesMock.mockResolvedValue({
+      cities: ["Madrid"],
+      total: 21,
+      page: 2,
+      pageSize: 20,
+    });
+
+    const response = await fetch(`${baseUrl}/cities?page=2`);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      cities: ["Madrid"],
+      total: 21,
+      page: 2,
+      pageSize: 20,
+    });
+    expect(listCitiesMock).toHaveBeenCalledWith(2);
+  });
+
+  it("defaults the city list to its first page", async () => {
+    listCitiesMock.mockResolvedValue({
+      cities: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    });
+
+    const response = await fetch(`${baseUrl}/cities`);
+
+    expect(response.status).toBe(200);
+    expect(listCitiesMock).toHaveBeenCalledWith(1);
+  });
+
+  it("rejects an invalid city list page", async () => {
+    const response = await fetch(`${baseUrl}/cities?page=0`);
+
+    expect(response.status).toBe(400);
+    expect(listCitiesMock).not.toHaveBeenCalled();
+  });
+
   it.each(["", "   "])(
-    "rejects a missing or blank search query (%j)",
+    "rejects a blank search query (%j)",
     async (search) => {
-      const url = search
-        ? `${baseUrl}/cities?search=${encodeURIComponent(search)}`
-        : `${baseUrl}/cities`;
-      const response = await fetch(url);
+      const response = await fetch(
+        `${baseUrl}/cities?search=${encodeURIComponent(search)}`,
+      );
 
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toEqual({

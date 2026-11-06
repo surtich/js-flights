@@ -37,6 +37,9 @@ number of matches:
 }
 ```
 
+`GET /cities?page=1` returns a page of 20 cities ordered by name, together with
+the total count and pagination metadata. Omitting `page` returns the first page.
+
 The city CRUD endpoints use the city name as its identifier:
 
 - `POST /cities` with `{"name":"Madrid"}` creates a city and returns `201`.

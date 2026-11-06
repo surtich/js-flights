@@ -3,16 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ciudades | JS Flights</title>
+    <title>JS Flights</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main>
-      <h1>Vuelo</h1>
-      <div id="origin-city-field"></div>
-      <div id="destination-city-field"></div>
-      <p id="status" role="status" aria-live="polite"></p>
-    </main>
+    <header class="site-header">
+      <a class="brand" href="#/" data-route>JS Flights</a>
+      <nav aria-label="Navegación principal">
+        <a href="#/" data-route>Inicio</a>
+        <a href="#/cities" data-route>Ciudades</a>
+        <a href="#/flights" data-route>Buscar vuelos</a>
+      </nav>
+    </header>
+    <main id="page-content"></main>
     <script type="module" src="./dist/index.js"></script>
   </body>
 </html>
