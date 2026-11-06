@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { pool } from "./database.ts";
 import { cities } from "./seed-data.ts";
+import { seedDefaultUsers } from "./users-repository.ts";
 
 const batchSize = 500;
 
@@ -26,8 +27,11 @@ const client = await pool.connect();
 try {
   await client.query("BEGIN");
   const inserted = await insertCities(client);
+  await seedDefaultUsers(client);
   await client.query("COMMIT");
-  console.log(`Se insertaron ${inserted} ciudades nuevas (${cities.length} en origen).`);
+  console.log(
+    `Se insertaron ${inserted} ciudades nuevas (${cities.length} en origen) y se crearon los usuarios iniciales.`,
+  );
 } catch (error) {
   try {
     await client.query("ROLLBACK");

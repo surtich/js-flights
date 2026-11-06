@@ -8,7 +8,6 @@ try {
   const schema = await readFile(schemaPath, "utf8");
   await pool.query("BEGIN");
   await pool.query(schema);
-  await pool.query("TRUNCATE TABLE cities");
   await pool.query("COMMIT");
   console.log("Esquema de base de datos aplicado.");
 } catch (error) {

@@ -17,6 +17,7 @@ const {
   findCityMock,
   renameCityMock,
   deleteCityMock,
+  findUserByNameMock,
 } = vi.hoisted(() => ({
   searchCitiesMock: vi.fn(),
   listCitiesMock: vi.fn(),
@@ -24,7 +25,10 @@ const {
   findCityMock: vi.fn(),
   renameCityMock: vi.fn(),
   deleteCityMock: vi.fn(),
+  findUserByNameMock: vi.fn(),
 }));
+
+process.env.AUTH_TOKEN_SECRET ??= "test-auth-token-secret-at-least-32-bytes-long";
 
 vi.mock("../src/db/cities-repository.ts", () => ({
   searchCities: searchCitiesMock,
@@ -35,7 +39,16 @@ vi.mock("../src/db/cities-repository.ts", () => ({
   deleteCity: deleteCityMock,
 }));
 
+vi.mock("../src/db/users-repository.ts", () => ({
+  findUserByName: findUserByNameMock,
+}));
+
 const { app } = await import("../src/index.ts");
+const { createAccessToken } = await import("../src/auth/tokens.ts");
+
+const adminHeaders = (): HeadersInit => ({
+  Authorization: `Bearer ${createAccessToken("admin")}`,
+});
 
 describe("GET /cities", () => {
   let server: Server;
@@ -48,6 +61,11 @@ describe("GET /cities", () => {
     findCityMock.mockReset();
     renameCityMock.mockReset();
     deleteCityMock.mockReset();
+    findUserByNameMock.mockImplementation(async (name: string) => ({
+      name,
+      passwordHash: "unused-in-these-tests",
+      role: name === "user" ? "USER" : "ADMIN",
+    }));
   });
 
   beforeAll(async () => {
@@ -168,12 +186,56 @@ describe("GET /cities", () => {
     expect(response.status).toBe(404);
   });
 
+  it("authenticates with a username and password and returns a bearer token", async () => {
+    const { hashPassword } = await import("../src/auth/passwords.ts");
+    findUserByNameMock.mockResolvedValue({
+      name: "admin",
+      passwordHash: await hashPassword("admin-password"),
+      role: "ADMIN",
+    });
+
+    const response = await fetch(`${baseUrl}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "admin", password: "admin-password" }),
+    });
+
+    expect(response.status).toBe(200);
+    const result = await response.json();
+    expect(result).toMatchObject({
+      tokenType: "Bearer",
+      expiresIn: 3600,
+      user: { name: "admin", role: "ADMIN" },
+    });
+    expect(typeof result.accessToken).toBe("string");
+  });
+
+  it("rejects incorrect login credentials", async () => {
+    const { hashPassword } = await import("../src/auth/passwords.ts");
+    findUserByNameMock.mockResolvedValue({
+      name: "admin",
+      passwordHash: await hashPassword("correct-password"),
+      role: "ADMIN",
+    });
+
+    const response = await fetch(`${baseUrl}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "admin", password: "wrong-password" }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: "Credenciales incorrectas.",
+    });
+  });
+
   it("creates a city and trims its name", async () => {
     createCityMock.mockResolvedValue("Madrid");
 
     const response = await fetch(`${baseUrl}/cities`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...adminHeaders() },
       body: JSON.stringify({ name: " Madrid " }),
     });
 
@@ -185,7 +247,7 @@ describe("GET /cities", () => {
   it("rejects a city without a non-blank name", async () => {
     const response = await fetch(`${baseUrl}/cities`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...adminHeaders() },
       body: JSON.stringify({ name: "  " }),
     });
 
@@ -198,11 +260,47 @@ describe("GET /cities", () => {
 
     const response = await fetch(`${baseUrl}/cities`, {
       method: "POST",
+      headers: { "Content-Type": "application/json", ...adminHeaders() },
+      body: JSON.stringify({ name: "Madrid" }),
+    });
+    expect(response.status).toBe(409);
+  });
+
+  it("requires authentication and the ADMIN role to create a city", async () => {
+    const unauthenticated = await fetch(`${baseUrl}/cities`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "Madrid" }),
     });
+    expect(unauthenticated.status).toBe(401);
+    expect(createCityMock).not.toHaveBeenCalled();
 
-    expect(response.status).toBe(409);
+    const userResponse = await fetch(`${baseUrl}/cities`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${createAccessToken("user")}`,
+      },
+      body: JSON.stringify({ name: "Madrid" }),
+    });
+    expect(userResponse.status).toBe(403);
+    expect(createCityMock).not.toHaveBeenCalled();
+  });
+
+  it("requires an ADMIN token to rename or delete a city", async () => {
+    const renameResponse = await fetch(`${baseUrl}/cities/Madrid`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Barcelona" }),
+    });
+    const deleteResponse = await fetch(`${baseUrl}/cities/Madrid`, {
+      method: "DELETE",
+    });
+
+    expect(renameResponse.status).toBe(401);
+    expect(deleteResponse.status).toBe(401);
+    expect(renameCityMock).not.toHaveBeenCalled();
+    expect(deleteCityMock).not.toHaveBeenCalled();
   });
 
   it("returns a city by name", async () => {
@@ -228,7 +326,7 @@ describe("GET /cities", () => {
 
     const response = await fetch(`${baseUrl}/cities/Madrid`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...adminHeaders() },
       body: JSON.stringify({ name: " Barcelona " }),
     });
 
@@ -245,7 +343,7 @@ describe("GET /cities", () => {
 
     const response = await fetch(`${baseUrl}/cities/Madrid`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...adminHeaders() },
       body: JSON.stringify({ name: "Barcelona" }),
     });
 
@@ -257,6 +355,7 @@ describe("GET /cities", () => {
 
     const response = await fetch(`${baseUrl}/cities/Madrid`, {
       method: "DELETE",
+      headers: adminHeaders(),
     });
 
     expect(response.status).toBe(204);
@@ -268,6 +367,7 @@ describe("GET /cities", () => {
 
     const response = await fetch(`${baseUrl}/cities/Madrid`, {
       method: "DELETE",
+      headers: adminHeaders(),
     });
 
     expect(response.status).toBe(404);

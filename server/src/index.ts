@@ -1,6 +1,7 @@
 import express from "express";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import authRouter from "./routes/auth.ts";
 import citiesRouter from "./routes/cities.ts";
 
 export const app = express();
@@ -10,7 +11,7 @@ app.use((request, response, next) => {
   response.set({
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   });
 
   if (request.method === "OPTIONS") {
@@ -21,6 +22,7 @@ app.use((request, response, next) => {
   next();
 });
 app.use(express.json());
+app.use("/auth", authRouter);
 app.use("/cities", citiesRouter);
 
 if (

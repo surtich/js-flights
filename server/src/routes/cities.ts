@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { requireAdmin } from "../auth/authorization.ts";
 import {
   createCity,
   deleteCity,
@@ -52,28 +53,32 @@ router.get("/", async (request: Request, response: Response): Promise<void> => {
   }
 });
 
-router.post("/", async (request: Request, response: Response): Promise<void> => {
-  const body: unknown = request.body;
-  if (!isCityInput(body)) {
-    response.status(400).json({
-      error: "El campo 'name' es obligatorio y no puede estar vacío.",
-    });
-    return;
-  }
-
-  try {
-    const city = await createCity(body.name.trim());
-    if (!city) {
-      response.status(409).json({ error: "La ciudad ya existe." });
+router.post(
+  "/",
+  requireAdmin,
+  async (request: Request, response: Response): Promise<void> => {
+    const body: unknown = request.body;
+    if (!isCityInput(body)) {
+      response.status(400).json({
+        error: "El campo 'name' es obligatorio y no puede estar vacío.",
+      });
       return;
     }
 
-    response.status(201).json({ name: city });
-  } catch (error) {
-    console.error("Error al crear ciudad en PostgreSQL:", error);
-    response.status(500).json({ error: "No se pudo crear la ciudad." });
-  }
-});
+    try {
+      const city = await createCity(body.name.trim());
+      if (!city) {
+        response.status(409).json({ error: "La ciudad ya existe." });
+        return;
+      }
+
+      response.status(201).json({ name: city });
+    } catch (error) {
+      console.error("Error al crear ciudad en PostgreSQL:", error);
+      response.status(500).json({ error: "No se pudo crear la ciudad." });
+    }
+  },
+);
 
 router.get(
   "/:name",
@@ -106,6 +111,7 @@ router.get(
 
 router.put(
   "/:name",
+  requireAdmin,
   async (
     request: Request<CityNameParams>,
     response: Response,
@@ -143,6 +149,7 @@ router.put(
 
 router.delete(
   "/:name",
+  requireAdmin,
   async (
     request: Request<CityNameParams>,
     response: Response,

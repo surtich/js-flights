@@ -13,7 +13,7 @@ vi.mock("../src/db/database.ts", () => ({
 }));
 
 describe("database migration", () => {
-  it("creates the table and truncates it inside a transaction", async () => {
+  it("creates the tables inside a transaction without deleting existing data", async () => {
     queryMock.mockClear();
     endMock.mockClear();
     await import("../src/db/migrate.ts");
@@ -24,8 +24,8 @@ describe("database migration", () => {
 
     expect(statements[0]).toBe("BEGIN");
     expect(statements[1]).toContain("CREATE TABLE IF NOT EXISTS cities");
-    expect(statements[2]).toBe("TRUNCATE TABLE cities");
-    expect(statements[3]).toBe("COMMIT");
+    expect(statements[1]).toContain("CREATE TABLE IF NOT EXISTS users");
+    expect(statements).toEqual(["BEGIN", statements[1], "COMMIT"]);
     expect(endMock).toHaveBeenCalledOnce();
   });
 });
