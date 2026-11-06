@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { pool } from "./database.ts";
 
-const schemaPath = fileURLToPath(new URL("../db/schema.sql", import.meta.url));
+const schemaPath = fileURLToPath(new URL("./schema.sql", import.meta.url));
 
 try {
   const schema = await readFile(schemaPath, "utf8");

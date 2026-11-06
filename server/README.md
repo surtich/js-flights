@@ -36,3 +36,13 @@ number of matches:
   "total": 2
 }
 ```
+
+The city CRUD endpoints use the city name as its identifier:
+
+- `POST /cities` with `{"name":"Madrid"}` creates a city and returns `201`.
+- `GET /cities/Madrid` returns one city.
+- `PUT /cities/Madrid` with `{"name":"Barcelona"}` renames it.
+- `DELETE /cities/Madrid` deletes it and returns `204`.
+
+Names are trimmed; blank names return `400`, missing cities return `404`, and
+duplicate names return `409`. CRUD endpoints support CORS preflight requests.

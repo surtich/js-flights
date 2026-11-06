@@ -1,31 +1,27 @@
-import express, { type Request, type Response } from "express";
+import express from "express";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { searchCities } from "./cities-repository.ts";
+import citiesRouter from "./routes/cities.ts";
 
 export const app = express();
 const port: number = Number(process.env.PORT ?? 3000);
 
-app.get("/cities", async (request: Request, response: Response): Promise<void> => {
-  response.set("Access-Control-Allow-Origin", "*");
+app.use((request, response, next) => {
+  response.set({
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  });
 
-  const search = request.query.search;
-  if (typeof search !== "string" || !search.trim()) {
-    response.status(400).json({
-      error: "El parámetro 'search' es obligatorio y no puede estar vacío.",
-    });
+  if (request.method === "OPTIONS") {
+    response.status(204).end();
     return;
   }
 
-  try {
-    response.json(await searchCities(search));
-  } catch (error) {
-    console.error("Error al buscar ciudades en PostgreSQL:", error);
-    response.status(500).json({
-      error: "No se pudieron cargar las ciudades.",
-    });
-  }
+  next();
 });
+app.use(express.json());
+app.use("/cities", citiesRouter);
 
 if (
   process.argv[1] &&

@@ -4,11 +4,17 @@ const { queryMock } = vi.hoisted(() => ({
   queryMock: vi.fn(),
 }));
 
-vi.mock("../src/database.ts", () => ({
+vi.mock("../src/db/database.ts", () => ({
   pool: { query: queryMock },
 }));
 
-const { searchCities } = await import("../src/cities-repository.ts");
+const {
+  searchCities,
+  createCity,
+  findCity,
+  renameCity,
+  deleteCity,
+} = await import("../src/db/cities-repository.ts");
 
 describe("searchCities repository", () => {
   beforeEach(() => {
@@ -44,5 +50,45 @@ describe("searchCities repository", () => {
     queryMock.mockRejectedValue(new Error("database unavailable"));
 
     await expect(searchCities("mad")).rejects.toThrow("database unavailable");
+  });
+
+  it("inserts a city and returns its name", async () => {
+    queryMock.mockResolvedValue({ rows: [{ name: "Madrid" }] });
+
+    await expect(createCity("Madrid")).resolves.toBe("Madrid");
+    const [sql, parameters] = queryMock.mock.calls[0]!;
+    expect(sql).toContain("ON CONFLICT (name) DO NOTHING");
+    expect(parameters).toEqual(["Madrid"]);
+  });
+
+  it("returns null when the city already exists", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+
+    await expect(createCity("Madrid")).resolves.toBeNull();
+  });
+
+  it("finds a city by exact name", async () => {
+    queryMock.mockResolvedValue({ rows: [{ name: "Madrid" }] });
+
+    await expect(findCity("Madrid")).resolves.toBe("Madrid");
+    expect(queryMock.mock.calls[0]![1]).toEqual(["Madrid"]);
+  });
+
+  it("renames a city and returns null when it does not exist", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [{ name: "Barcelona" }] });
+
+    await expect(renameCity("Madrid", "Barcelona")).resolves.toBe("Barcelona");
+    expect(queryMock.mock.calls[0]![1]).toEqual(["Madrid", "Barcelona"]);
+
+    queryMock.mockResolvedValueOnce({ rows: [] });
+    await expect(renameCity("Missing", "Barcelona")).resolves.toBeNull();
+  });
+
+  it("deletes a city and reports whether it existed", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [{ name: "Madrid" }] });
+    await expect(deleteCity("Madrid")).resolves.toBe(true);
+
+    queryMock.mockResolvedValueOnce({ rows: [] });
+    await expect(deleteCity("Missing")).resolves.toBe(false);
   });
 });

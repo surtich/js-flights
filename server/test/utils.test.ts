@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cities } from "../src/utils.ts";
+import { cities } from "../src/db/seed-data.ts";
 
 describe("cities", () => {
   it("contains only non-empty city names", () => {

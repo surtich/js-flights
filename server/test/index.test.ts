@@ -10,12 +10,26 @@ import {
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
-const { searchCitiesMock } = vi.hoisted(() => ({
+const {
+  searchCitiesMock,
+  createCityMock,
+  findCityMock,
+  renameCityMock,
+  deleteCityMock,
+} = vi.hoisted(() => ({
   searchCitiesMock: vi.fn(),
+  createCityMock: vi.fn(),
+  findCityMock: vi.fn(),
+  renameCityMock: vi.fn(),
+  deleteCityMock: vi.fn(),
 }));
 
-vi.mock("../src/cities-repository.ts", () => ({
+vi.mock("../src/db/cities-repository.ts", () => ({
   searchCities: searchCitiesMock,
+  createCity: createCityMock,
+  findCity: findCityMock,
+  renameCity: renameCityMock,
+  deleteCity: deleteCityMock,
 }));
 
 const { app } = await import("../src/index.ts");
@@ -26,6 +40,10 @@ describe("GET /cities", () => {
 
   beforeEach(() => {
     searchCitiesMock.mockReset();
+    createCityMock.mockReset();
+    findCityMock.mockReset();
+    renameCityMock.mockReset();
+    deleteCityMock.mockReset();
   });
 
   beforeAll(async () => {
@@ -104,5 +122,119 @@ describe("GET /cities", () => {
     const response = await fetch(`${baseUrl}/unknown`);
 
     expect(response.status).toBe(404);
+  });
+
+  it("creates a city and trims its name", async () => {
+    createCityMock.mockResolvedValue("Madrid");
+
+    const response = await fetch(`${baseUrl}/cities`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: " Madrid " }),
+    });
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({ name: "Madrid" });
+    expect(createCityMock).toHaveBeenCalledWith("Madrid");
+  });
+
+  it("rejects a city without a non-blank name", async () => {
+    const response = await fetch(`${baseUrl}/cities`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "  " }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(createCityMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects creating an existing city", async () => {
+    createCityMock.mockResolvedValue(null);
+
+    const response = await fetch(`${baseUrl}/cities`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Madrid" }),
+    });
+
+    expect(response.status).toBe(409);
+  });
+
+  it("returns a city by name", async () => {
+    findCityMock.mockResolvedValue("Madrid");
+
+    const response = await fetch(`${baseUrl}/cities/Madrid`);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ name: "Madrid" });
+    expect(findCityMock).toHaveBeenCalledWith("Madrid");
+  });
+
+  it("returns 404 when reading a missing city", async () => {
+    findCityMock.mockResolvedValue(null);
+
+    const response = await fetch(`${baseUrl}/cities/Madrid`);
+
+    expect(response.status).toBe(404);
+  });
+
+  it("renames a city", async () => {
+    renameCityMock.mockResolvedValue("Barcelona");
+
+    const response = await fetch(`${baseUrl}/cities/Madrid`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: " Barcelona " }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ name: "Barcelona" });
+    expect(renameCityMock).toHaveBeenCalledWith("Madrid", "Barcelona");
+  });
+
+  it("rejects renaming a city to an existing name", async () => {
+    const duplicateError = Object.assign(new Error("duplicate"), {
+      code: "23505",
+    });
+    renameCityMock.mockRejectedValue(duplicateError);
+
+    const response = await fetch(`${baseUrl}/cities/Madrid`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Barcelona" }),
+    });
+
+    expect(response.status).toBe(409);
+  });
+
+  it("deletes a city", async () => {
+    deleteCityMock.mockResolvedValue(true);
+
+    const response = await fetch(`${baseUrl}/cities/Madrid`, {
+      method: "DELETE",
+    });
+
+    expect(response.status).toBe(204);
+    expect(deleteCityMock).toHaveBeenCalledWith("Madrid");
+  });
+
+  it("returns 404 when deleting a missing city", async () => {
+    deleteCityMock.mockResolvedValue(false);
+
+    const response = await fetch(`${baseUrl}/cities/Madrid`, {
+      method: "DELETE",
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("answers CORS preflight requests for CRUD methods", async () => {
+    const response = await fetch(`${baseUrl}/cities`, {
+      method: "OPTIONS",
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-methods")).toContain("DELETE");
   });
 });

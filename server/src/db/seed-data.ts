@@ -1,4 +1,4 @@
-import airports from "../data/airports.json" with { type: "json" };
+import airports from "../../data/airports.json" with { type: "json" };
 
 type Airport = {
   city?: string | null;

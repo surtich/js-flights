@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 import { pool } from "./database.ts";
-import { cities } from "./utils.ts";
+import { cities } from "./seed-data.ts";
 
 const batchSize = 500;
 
