@@ -1,5 +1,27 @@
 import { expect, test } from "@playwright/test";
 
+const cities = [
+  "Anchor Point",
+  "Harvest",
+  ...Array.from({ length: 28 }, (_, index) => `Mad City ${index}`),
+];
+
+test.beforeEach(async ({ page }) => {
+  await page.route("http://localhost:3000/cities?**", async (route) => {
+    const query = new URL(route.request().url()).searchParams.get("search") ?? "";
+    const matches = cities.filter((city) =>
+      city.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+    );
+
+    await route.fulfill({
+      json: {
+        cities: matches.slice(0, 20),
+        total: matches.length,
+      },
+    });
+  });
+});
+
 test("suggests cities containing the query and updates their status", async ({ page }) => {
   const citiesRequests = [];
   page.on("request", (request) => {

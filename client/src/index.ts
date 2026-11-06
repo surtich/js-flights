@@ -1,4 +1,4 @@
-import { getCities } from "./services.js";
+import { searchCities } from "./services.js";
 import { createCitySearch } from "./components/city-search.js";
 
 const originCityContainer = document.querySelector<HTMLDivElement>(
@@ -32,7 +32,7 @@ const originCitySearch = createCitySearch({
   name: "origin",
   label: "Ciudad de origen",
   placeholder: "Busca una ciudad de origen",
-  searchCities: getCities,
+  searchCities,
   onSelect: (city) => {
     selectedOrigin = city;
     updateStatus();
@@ -43,7 +43,7 @@ const destinationCitySearch = createCitySearch({
   name: "destination",
   label: "Ciudad de destino",
   placeholder: "Busca una ciudad de destino",
-  searchCities: getCities,
+  searchCities,
   onSelect: (city) => {
     selectedDestination = city;
     updateStatus();

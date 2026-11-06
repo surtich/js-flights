@@ -1,18 +1,20 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
-const { mockedCities } = vi.hoisted(() => ({
-  mockedCities: ["Mock City", "Testville"],
+const { searchCitiesMock } = vi.hoisted(() => ({
+  searchCitiesMock: vi.fn(),
 }));
-const searchCitiesMock = vi.fn((query: string) =>
-  mockedCities.filter((city) =>
-    city.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
-  ),
-);
 
-vi.mock("../src/utils.ts", () => ({
-  cities: mockedCities,
+vi.mock("../src/cities-repository.ts", () => ({
   searchCities: searchCitiesMock,
 }));
 
@@ -21,6 +23,10 @@ const { app } = await import("../src/index.ts");
 describe("GET /cities", () => {
   let server: Server;
   let baseUrl: string;
+
+  beforeEach(() => {
+    searchCitiesMock.mockReset();
+  });
 
   beforeAll(async () => {
     server = app.listen(0);
@@ -40,12 +46,19 @@ describe("GET /cities", () => {
   });
 
   it("returns only cities matching the search with JSON content type and open CORS", async () => {
+    searchCitiesMock.mockResolvedValue({
+      cities: ["Mock City"],
+      total: 1,
+    });
     const response = await fetch(`${baseUrl}/cities?search=mock`);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("application/json");
     expect(response.headers.get("access-control-allow-origin")).toBe("*");
-    await expect(response.json()).resolves.toEqual(["Mock City"]);
+    await expect(response.json()).resolves.toEqual({
+      cities: ["Mock City"],
+      total: 1,
+    });
     expect(searchCitiesMock).toHaveBeenCalledWith("mock");
   });
 
@@ -71,6 +84,20 @@ describe("GET /cities", () => {
     );
 
     expect(response.status).toBe(400);
+  });
+
+  it("reports database failures as a server error", async () => {
+    searchCitiesMock.mockRejectedValue(new Error("database unavailable"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await fetch(`${baseUrl}/cities?search=mock`);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "No se pudieron cargar las ciudades.",
+    });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it("returns 404 for an unknown route", async () => {

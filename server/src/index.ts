@@ -1,12 +1,12 @@
 import express, { type Request, type Response } from "express";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { searchCities } from "./utils.ts";
+import { searchCities } from "./cities-repository.ts";
 
 export const app = express();
 const port: number = Number(process.env.PORT ?? 3000);
 
-app.get("/cities", (request: Request, response: Response): void => {
+app.get("/cities", async (request: Request, response: Response): Promise<void> => {
   response.set("Access-Control-Allow-Origin", "*");
 
   const search = request.query.search;
@@ -17,7 +17,14 @@ app.get("/cities", (request: Request, response: Response): void => {
     return;
   }
 
-  response.json(searchCities(search));
+  try {
+    response.json(await searchCities(search));
+  } catch (error) {
+    console.error("Error al buscar ciudades en PostgreSQL:", error);
+    response.status(500).json({
+      error: "No se pudieron cargar las ciudades.",
+    });
+  }
 });
 
 if (

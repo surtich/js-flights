@@ -8,12 +8,12 @@ import {
   vi,
 } from "vitest";
 
-const { getCitiesMock } = vi.hoisted(() => ({
-  getCitiesMock: vi.fn(),
+const { searchCitiesMock } = vi.hoisted(() => ({
+  searchCitiesMock: vi.fn(),
 }));
 
 vi.mock("../src/services.js", () => ({
-  getCities: getCitiesMock,
+  searchCities: searchCitiesMock,
 }));
 
 describe("index UI", () => {
@@ -24,7 +24,7 @@ describe("index UI", () => {
       <div id="destination-city-field"></div>
       <p id="status"></p>
     `;
-    getCitiesMock.mockReset();
+    searchCitiesMock.mockReset();
   });
 
   afterEach(() => {
@@ -34,11 +34,12 @@ describe("index UI", () => {
 
   it("requests matching cities and updates selection status", async () => {
     const cities = ["Madrid", "Barcelona", "Villa Madrid", "San Diego"];
-    getCitiesMock.mockImplementation(async (query: string) =>
-      cities.filter((city) =>
+    searchCitiesMock.mockImplementation(async (query: string) => {
+      const matches = cities.filter((city) =>
         city.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
-      ),
-    );
+      );
+      return { cities: matches, total: matches.length };
+    });
 
     await import("../src/index.ts");
 
@@ -56,7 +57,7 @@ describe("index UI", () => {
     )!;
     const status = document.querySelector<HTMLParagraphElement>("#status")!;
 
-    expect(getCitiesMock).not.toHaveBeenCalled();
+    expect(searchCitiesMock).not.toHaveBeenCalled();
     expect(originCitySearch.disabled).toBe(false);
     expect(destinationCitySearch.disabled).toBe(false);
     expect(status.textContent).toBe("Busca una ciudad de origen y destino.");
@@ -70,7 +71,7 @@ describe("index UI", () => {
         ),
       ).toEqual(["Madrid", "Villa Madrid"]),
     );
-    expect(getCitiesMock).toHaveBeenLastCalledWith(
+    expect(searchCitiesMock).toHaveBeenLastCalledWith(
       "DRID",
       expect.any(AbortSignal),
     );
@@ -105,9 +106,10 @@ describe("index UI", () => {
   });
 
   it("limits the rendered suggestions and reports the total matches", async () => {
-    getCitiesMock.mockResolvedValue(
-      Array.from({ length: 25 }, (_, index) => `City ${index}`),
-    );
+    searchCitiesMock.mockResolvedValue({
+      cities: Array.from({ length: 20 }, (_, index) => `City ${index}`),
+      total: 25,
+    });
 
     await import("../src/index.ts");
 
@@ -128,7 +130,10 @@ describe("index UI", () => {
   });
 
   it("supports choosing a server suggestion with the keyboard", async () => {
-    getCitiesMock.mockResolvedValue(["Madrid", "Barcelona"]);
+    searchCitiesMock.mockResolvedValue({
+      cities: ["Madrid", "Barcelona"],
+      total: 2,
+    });
 
     await import("../src/index.ts");
 
@@ -159,7 +164,7 @@ describe("index UI", () => {
   });
 
   it("shows a visible error when a city search request fails", async () => {
-    getCitiesMock.mockRejectedValue(new Error("network error"));
+    searchCitiesMock.mockRejectedValue(new Error("network error"));
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await import("../src/index.ts");
@@ -181,14 +186,14 @@ describe("index UI", () => {
 
   it("ignores stale responses when the query changes", async () => {
     let resolveFirst: (cities: string[]) => void = () => {};
-    getCitiesMock
+    searchCitiesMock
       .mockImplementationOnce(
         () =>
-          new Promise<string[]>((resolve) => {
+          new Promise<{ cities: string[]; total: number }>((resolve) => {
             resolveFirst = resolve;
           }),
       )
-      .mockResolvedValueOnce(["Madrid"]);
+      .mockResolvedValueOnce({ cities: ["Madrid"], total: 1 });
 
     await import("../src/index.ts");
 
@@ -205,7 +210,7 @@ describe("index UI", () => {
     search.dispatchEvent(new Event("input"));
 
     await vi.waitFor(() => expect(suggestions.children).toHaveLength(1));
-    resolveFirst(["Malaga"]);
+    resolveFirst({ cities: ["Malaga"], total: 1 });
     await Promise.resolve();
 
     expect(Array.from(suggestions.children).map((option) => option.textContent))

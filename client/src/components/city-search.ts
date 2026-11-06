@@ -1,10 +1,15 @@
+import type { CitySearchResults } from "../services.js";
+
 export interface CitySearchOptions {
   idPrefix: string;
   name: string;
   label: string;
   placeholder: string;
   onSelect: (city: string | null) => void;
-  searchCities: (query: string, signal: AbortSignal) => Promise<string[]>;
+  searchCities: (
+    query: string,
+    signal: AbortSignal,
+  ) => Promise<CitySearchResults>;
 }
 
 export interface CitySearchComponent {
@@ -100,17 +105,17 @@ export function createCitySearch({
     }
   };
 
-  const renderSuggestions = (matches: string[]): void => {
+  const renderSuggestions = ({ cities, total }: CitySearchResults): void => {
     suggestions.replaceChildren();
     summary.textContent = "";
     hideSuggestions();
 
-    if (matches.length === 0) {
+    if (cities.length === 0) {
       summary.textContent = "No se encontraron ciudades.";
       return;
     }
 
-    for (const city of matches.slice(0, maxSuggestions)) {
+    for (const city of cities.slice(0, maxSuggestions)) {
       const option = document.createElement("li");
       option.id = `${suggestionsId}-option-${suggestions.childElementCount}`;
       option.dataset.city = city;
@@ -120,8 +125,8 @@ export function createCitySearch({
       suggestions.append(option);
     }
 
-    if (matches.length > maxSuggestions) {
-      summary.textContent = `Hay ${matches.length.toLocaleString("es")} coincidencias; usa las flechas o desplázate para ver las primeras ${maxSuggestions}.`;
+    if (total > maxSuggestions) {
+      summary.textContent = `Hay ${total.toLocaleString("es")} coincidencias; usa las flechas o desplázate para ver las primeras ${maxSuggestions}.`;
     }
     suggestions.hidden = false;
     input.setAttribute("aria-expanded", "true");

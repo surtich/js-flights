@@ -8,16 +8,21 @@
   "main": "index.ts",
   "scripts": {
     "test": "vitest run",
-    "watch": "node --watch --experimental-strip-types src/index.ts",
+    "watch": "node --env-file-if-exists=.env --watch --experimental-strip-types src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node src/index.ts"
+    "start": "node --env-file-if-exists=.env src/index.ts",
+    "db:migrate": "node --env-file-if-exists=.env --experimental-strip-types src/migrate.ts",
+    "db:seed": "node --env-file-if-exists=.env --experimental-strip-types src/seed.ts",
+    "db:setup": "npm run db:migrate & npm run db:seed"
   },
   "dependencies": {
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.6",
+    "@types/pg": "^8.15.5",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }
