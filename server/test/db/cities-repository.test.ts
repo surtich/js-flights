@@ -4,7 +4,7 @@ const { queryMock } = vi.hoisted(() => ({
   queryMock: vi.fn(),
 }));
 
-vi.mock("../src/db/database.ts", () => ({
+vi.mock("../../src/db/database.ts", () => ({
   pool: { query: queryMock },
 }));
 
@@ -15,7 +15,7 @@ const {
   findCity,
   renameCity,
   deleteCity,
-} = await import("../src/db/cities-repository.ts");
+} = await import("../../src/db/cities-repository.ts");
 
 describe("searchCities repository", () => {
   beforeEach(() => {

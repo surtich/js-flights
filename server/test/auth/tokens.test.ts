@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   createAccessToken,
   verifyAccessToken,
-} from "../src/auth/tokens.ts";
+} from "../../src/auth/tokens.ts";
 
 describe("access tokens", () => {
   beforeEach(() => {

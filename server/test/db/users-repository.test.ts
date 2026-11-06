@@ -5,19 +5,19 @@ const { queryMock, hashPasswordMock } = vi.hoisted(() => ({
   hashPasswordMock: vi.fn(async (password: string) => `scrypt-hash-${password}`),
 }));
 
-vi.mock("../src/db/database.ts", () => ({
+vi.mock("../../src/db/database.ts", () => ({
   pool: {
     query: queryMock,
     connect: vi.fn(async () => ({ query: queryMock })),
   },
 }));
 
-vi.mock("../src/auth/passwords.ts", () => ({
+vi.mock("../../src/auth/passwords.ts", () => ({
   hashPassword: hashPasswordMock,
 }));
 
-const { seedDefaultUsers } = await import("../src/db/users-repository.ts");
-const { pool } = await import("../src/db/database.ts");
+const { seedDefaultUsers } = await import("../../src/db/users-repository.ts");
+const { pool } = await import("../../src/db/database.ts");
 
 describe("seedDefaultUsers", () => {
   beforeEach(() => {

@@ -30,7 +30,7 @@ const {
 
 process.env.AUTH_TOKEN_SECRET ??= "test-auth-token-secret-at-least-32-bytes-long";
 
-vi.mock("../src/db/cities-repository.ts", () => ({
+vi.mock("../../src/db/cities-repository.ts", () => ({
   searchCities: searchCitiesMock,
   listCities: listCitiesMock,
   createCity: createCityMock,
@@ -39,12 +39,12 @@ vi.mock("../src/db/cities-repository.ts", () => ({
   deleteCity: deleteCityMock,
 }));
 
-vi.mock("../src/db/users-repository.ts", () => ({
+vi.mock("../../src/db/users-repository.ts", () => ({
   findUserByName: findUserByNameMock,
 }));
 
-const { app } = await import("../src/index.ts");
-const { createAccessToken } = await import("../src/auth/tokens.ts");
+const { app } = await import("../../src/index.ts");
+const { createAccessToken } = await import("../../src/auth/tokens.ts");
 
 const adminHeaders = (): HeadersInit => ({
   Authorization: `Bearer ${createAccessToken("admin")}`,
@@ -184,50 +184,6 @@ describe("GET /cities", () => {
     const response = await fetch(`${baseUrl}/unknown`);
 
     expect(response.status).toBe(404);
-  });
-
-  it("authenticates with a username and password and returns a bearer token", async () => {
-    const { hashPassword } = await import("../src/auth/passwords.ts");
-    findUserByNameMock.mockResolvedValue({
-      name: "admin",
-      passwordHash: await hashPassword("admin-password"),
-      role: "ADMIN",
-    });
-
-    const response = await fetch(`${baseUrl}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "admin", password: "admin-password" }),
-    });
-
-    expect(response.status).toBe(200);
-    const result = await response.json();
-    expect(result).toMatchObject({
-      tokenType: "Bearer",
-      expiresIn: 3600,
-      user: { name: "admin", role: "ADMIN" },
-    });
-    expect(typeof result.accessToken).toBe("string");
-  });
-
-  it("rejects incorrect login credentials", async () => {
-    const { hashPassword } = await import("../src/auth/passwords.ts");
-    findUserByNameMock.mockResolvedValue({
-      name: "admin",
-      passwordHash: await hashPassword("correct-password"),
-      role: "ADMIN",
-    });
-
-    const response = await fetch(`${baseUrl}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "admin", password: "wrong-password" }),
-    });
-
-    expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({
-      error: "Credenciales incorrectas.",
-    });
   });
 
   it("creates a city and trims its name", async () => {

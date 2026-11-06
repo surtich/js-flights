@@ -5,7 +5,7 @@ const { queryMock, endMock } = vi.hoisted(() => ({
   endMock: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../src/db/database.ts", () => ({
+vi.mock("../../src/db/database.ts", () => ({
   pool: {
     query: queryMock,
     end: endMock,
@@ -16,7 +16,7 @@ describe("database migration", () => {
   it("creates the tables inside a transaction without deleting existing data", async () => {
     queryMock.mockClear();
     endMock.mockClear();
-    await import("../src/db/migrate.ts");
+    await import("../../src/db/migrate.ts");
 
     const statements = queryMock.mock.calls.map(([statement]) =>
       String(statement),
