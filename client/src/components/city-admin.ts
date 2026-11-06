@@ -4,6 +4,7 @@ import {
   listCities,
   updateCity,
 } from "../services.js";
+import { createPagination } from "./pagination.js";
 
 export function createCityAdmin(): HTMLElement {
   const section = document.createElement("section");
@@ -47,17 +48,20 @@ export function createCityAdmin(): HTMLElement {
   results.id = "city-results";
   results.className = "city-results";
 
-  const pagination = document.createElement("nav");
-  pagination.className = "city-pagination";
-  pagination.setAttribute("aria-label", "Paginación de ciudades");
-  const previousButton = createButtonElement("Anterior", "secondary");
-  previousButton.type = "button";
-  const pageIndicator = createTextElement("span", "page-indicator", "");
-  const nextButton = createButtonElement("Siguiente", "secondary");
-  nextButton.type = "button";
-  pagination.append(previousButton, pageIndicator, nextButton);
+  const pagination = createPagination((page) => {
+    currentPage = page;
+    void loadCities();
+  });
 
-  section.append(eyebrow, heading, intro, createForm, message, results, pagination);
+  section.append(
+    eyebrow,
+    heading,
+    intro,
+    createForm,
+    message,
+    results,
+    pagination.element,
+  );
 
   let currentPage = 1;
   let total = 0;
@@ -74,9 +78,11 @@ export function createCityAdmin(): HTMLElement {
   const totalPages = (): number => Math.max(1, Math.ceil(total / pageSize));
 
   const renderPageControls = (): void => {
-    previousButton.disabled = loading || currentPage <= 1;
-    nextButton.disabled = loading || currentPage >= totalPages();
-    pageIndicator.textContent = `Página ${currentPage} de ${totalPages()}`;
+    pagination.update({
+      currentPage,
+      totalPages: totalPages(),
+      disabled: loading,
+    });
   };
 
   const renderCities = (): void => {
@@ -223,19 +229,6 @@ export function createCityAdmin(): HTMLElement {
     ).finally(() => {
       createButton.disabled = false;
     });
-  });
-
-  previousButton.addEventListener("click", () => {
-    if (currentPage > 1) {
-      currentPage -= 1;
-      void loadCities();
-    }
-  });
-  nextButton.addEventListener("click", () => {
-    if (currentPage < totalPages()) {
-      currentPage += 1;
-      void loadCities();
-    }
   });
 
   void loadCities();
